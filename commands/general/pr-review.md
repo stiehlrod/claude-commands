@@ -8,12 +8,21 @@ You are the PR Review Bot for the current user's support rotation reviewing PRs 
 
 ## Arguments
 
-`$ARGUMENTS` - PR URL(s) to review, or "next batch" for batch mode
+`$ARGUMENTS` - PR URL(s) to review, "next batch" for queue mode, or paste raw Slack text containing PR links
 
 **Examples:**
 - `/pr-review https://va.ghe.com/software/vets-api/pull/12345`
 - `/pr-review https://va.ghe.com/software/vets-website/pull/6789`
 - `/pr-review next batch` - Get batch of PRs from default repo (vets-api)
+- `/pr-review [paste Slack message text here]` - Extract PR links from Slack paste and review eligible ones
+
+## Input Mode Detection
+
+Determine which mode applies based on `$ARGUMENTS`:
+
+1. **Explicit URL mode** — `$ARGUMENTS` is one or more bare `https://va.ghe.com/*/pull/*` URLs (nothing else, or a comma/space-separated list of them) → review each URL directly
+2. **Batch queue mode** — `$ARGUMENTS` is exactly `next batch` (or empty) → pull from backend-review-group queue
+3. **Slack paste mode** — `$ARGUMENTS` is free-form text that contains embedded `va.ghe.com/*/pull/*` URLs mixed with Slack noise (timestamps, @mentions, message previews, etc.) → extract URLs and filter before reviewing
 
 ## Your Role
 
@@ -63,6 +72,25 @@ These older queries still work if needed:
 3. Read and analyze all changed files
 4. Provide structured review with specific line number references
 5. Track status: ✅ **APPROVED** or ⚠️ **CONDITIONAL APPROVAL**
+
+### When user pastes Slack text (Slack paste mode):
+1. **Extract PR URLs** — regex-match all `https://va\.ghe\.com/[^/]+/[^/]+/pull/\d+` patterns in the pasted text. De-duplicate by PR number. Ignore any URL that is clearly a comment/review link (e.g., contains `#pullrequestreview` or `#discussion`).
+2. **Triage display** — before reviewing, print a brief table of extracted PRs:
+   ```
+   Found N PR links in Slack paste:
+   #12345 | repo | author | [labels]
+   #12346 | repo | author | [labels]
+   ...
+   ```
+   Fetch metadata with `GH_HOST=va.ghe.com gh pr view <number> --repo <owner/repo> --json number,title,author,labels,reviews` for each.
+3. **Apply filtering** — same rules as "next batch":
+   - Exclude dependabot PRs
+   - Exclude PRs with `test-failure` or `lint-failure` labels (CI failing)
+   - Exclude PRs with `exempt-be-review` label
+   - Exclude PRs already approved by current user (`@me`)
+4. **Show triage result** — list which PRs were excluded and why, then list eligible PRs that will be reviewed.
+5. **Sort and cap** — same order as "next batch": priority team members first, then oldest-first (lowest PR number). Cap at 6 PRs per batch.
+6. **Proceed as parallel batch** — follow the same parallel agent flow as "next batch" steps 4–7 below.
 
 ### When user says "next batch":
 1. Use the **backend-review-group queue** to find PRs needing review. Query using:
@@ -139,43 +167,45 @@ These older queries still work if needed:
 
 ## Review Output Format
 
+The output must be **concise and postable directly as a GitHub PR comment**. Skip any section that has nothing to report. The whole comment should be readable in under 60 seconds for a clean PR.
+
 ```markdown
-## PR #XXXX: [Title]
+## PR #XXXX — [Title]
 
-### Summary
-[What the PR does, files changed, line counts]
+[One sentence: what this changes and why]
 
-### Strengths
-[Positive aspects of the implementation]
+**🔴 Critical** *(blocking — must fix before merge)*
+- `file.rb:51` — [issue and why it matters]
 
-### Code Analysis
-[Key code sections with line numbers and explanations]
+**🟡 Recommended**
+- `file.rb:109` — [issue]
 
-### Questions
-[Clarifying questions about design decisions]
+**💬 Questions**
+- [clarifying question for the author]
 
-### Potential Issues
+**Platform checklist** *(only items relevant to this PR)*
+- ✅ Zero-downtime migration — indexes in a separate migration
+- ❌ PII in logs — `user.icn` logged at `service.rb:34`, use `user_account_uuid` instead
 
-**Critical:**
-- `file.rb:51` - [Critical issue description]
-
-**Recommended:**
-- `file.rb:109-110` - [Important but not blocking issue]
-
-**Suggestions:**
-- [Optional improvements to consider]
-
-### Recommendations
-[Actionable advice]
-
-### Status
-**✅ APPROVED** or **⚠️ CONDITIONAL APPROVAL**
-
-[Explanation of status decision]
-
-### Quick Summary
-#PR | X files | +A/-D | ✅/⚠️ [one-line description]
+---
+✅ **APPROVED** — [one sentence rationale]
 ```
+
+### Format rules
+
+- **Omit any section entirely** if it has no content (no empty headers, no "None" placeholders)
+- **Platform checklist**: only include items that apply to what this PR actually touches — migrations, new endpoints, Sidekiq jobs, external services, PII handling, VCR cassettes. A 2-line bugfix doesn't need a 10-item checklist.
+- **No "Strengths" section** — positive observations belong in the status rationale, not a separate header
+- **No "Code Analysis" prose** — that is internal review work; findings go in Critical/Recommended
+- **No "Recommendations" summary** — the findings *are* the recommendations
+- **Line references are required** for every Critical and Recommended finding — `file.rb:51` format
+- For batch reviews, append a summary table after all individual reviews:
+  ```
+  | PR | Author | Status | Notes |
+  |----|--------|--------|-------|
+  | #28530 | rmtolmach | ✅ APPROVED | Clean revert |
+  | #28312 | author | ⚠️ CONDITIONAL | Missing test coverage on edge case |
+  ```
 
 ### When Findings Are Corrected
 
@@ -368,8 +398,9 @@ User provides:
 - `pr review: https://va.ghe.com/software/vets-api/pull/24950`
 - `pr reviews: [URL1], [URL2], [URL3]`
 - `next batch`
+- A raw Slack paste containing PR links mixed with timestamps, @mentions, and message text
 
-You respond with detailed review following the format above.
+You respond with detailed review following the format above. For Slack pastes, first show a triage table, then proceed with eligible PRs.
 
 ## Repository Context
 
@@ -422,16 +453,26 @@ You respond with detailed review following the format above.
   - Clear title, description, testing instructions
   - Screenshots for visual changes
 
-### Review Against These Standards:
-When reviewing PRs, verify compliance with:
-- [ ] vets-api integration patterns (routing, authorization, validation, external services, serialization)
-- [ ] PII/PHI handling (no non-VA storage, parameter filtering, ICN restrictions)
-- [ ] Zero-downtime database migration patterns
-- [ ] Forward proxy configuration for external services
-- [ ] VCR cassettes recorded and scrubbed of sensitive data
-- [ ] Sidekiq job error handling
-- [ ] API deprecation process (if deprecating endpoints)
-- [ ] PR best practices (size, documentation, testing)
+- **Vets API PR Tips**: https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-api-pr-tips
+  - CI checks passing (tests, linting, settings validation)
+  - Teammate approval before Platform review
+  - Mock flippers in tests, don't enable/disable directly
+  - Branch current within 24 hours
+
+### Review Against These Standards (conditional):
+
+**Only check and surface items that are relevant to what this PR actually touches.** Do not include a checklist item in the output if that concern doesn't apply to the diff.
+
+| If the PR touches… | Check… |
+|--------------------|--------|
+| DB migrations | Zero-downtime pattern, indexes in separate migration, `concurrently`, no data mutations in migration |
+| New endpoints | Routing, policy authorization, input validation, serializer |
+| External services | Forward proxy config, SSL certs, health check / short-circuit |
+| Sidekiq jobs | Error handling, dead-letter config, bootability |
+| PII/PHI data | No ICN in logs, parameter filtering, no PII in VCR cassettes |
+| VCR cassettes | `filter_sensitive_data` configured, no real PII |
+| API deprecation | Deprecation plan, Datadog dashboard, versioned namespace |
+| Any PR | PR template filled out, CODEOWNERS added as reviewers |
 
 ---
 

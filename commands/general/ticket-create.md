@@ -53,6 +53,46 @@ Team templates kept locally let each user (or team) maintain their own ticket co
 
 Create clear, actionable GitHub issue tickets. Keep tickets lean — description and tasks only. Context goes in comments.
 
+**Core standards that apply to ALL templates:**
+- **Acceptance Criteria** must be written for a non-technical audience (stakeholder, product manager, customer). Avoid jargon. Focus on outcomes and observables, not implementation.
+- **Tasks** must be specific, actionable, and completable independently. Each task should take 1–4 hours to finish. Vague tasks = stalled work.
+- **Ticket number** (once created) must be included in all related PRs. Title format: `[#TICKET] description`
+- **Priority consistency** — child tickets must have the same priority as their parent epic. When creating child tickets, always confirm the parent epic's priority and apply the same value. Never let a child ticket drift to a different priority than the epic it belongs to.
+
+## Task & Acceptance Criteria Standards
+
+### What Makes Good Acceptance Criteria
+
+**Good AC (non-technical, outcome-focused):**
+- ✅ "Users can log in with their email address"
+- ✅ "The page loads in under 2 seconds"
+- ✅ "Error messages clearly explain what went wrong"
+
+**Bad AC (jargon-heavy, implementation-focused):**
+- ❌ "Implement OAuth2 with PKCE flow"
+- ❌ "Refactor database queries"
+- ❌ "Use memoization for component render"
+
+**Rule:** A stakeholder with zero coding background should understand what "done" means. If your AC has `const`, `API`, `refactor`, or `component` without explanation, rewrite it.
+
+### What Makes Good Tasks
+
+**Good task:**
+- ✅ "Add 'forgot password' link to login form and verify it sends reset email"
+- ✅ "Write unit tests for new password validation logic (>80% coverage)"
+- ✅ "Update API documentation with new error response format"
+
+**Bad tasks:**
+- ❌ "Build feature" (too vague)
+- ❌ "Fix bugs" (which bugs?)
+- ❌ "Write code" (what code?)
+
+**Rule:** Each task should:
+1. Start with a verb (Add, Write, Update, Fix, Test, Review)
+2. Be completable in 1–4 hours
+3. Have a clear success state (not "work on X")
+4. Be independent (can be done without blocking other tasks, where possible)
+
 ## Content Separation Rules
 
 **In the ticket (issue body):**
@@ -90,12 +130,97 @@ Create clear, actionable GitHub issue tickets. Keep tickets lean — description
    - **Ticket body**: Use the appropriate template (lean — description + tasks + AC)
    - **Context comment**: Background, technical details, prior art, decision rationale
 
-3. **Save the ticket** to `~/tickets/` as a markdown file:
-   - Filename: `YYYY-MM-DD-{title-slug}.md`
-   - Include both the ticket body and a clearly separated `## Context Comment` section
-   - For existing issue updates: `YYYY-MM-DD-issue-{number}-{slug}.md`
+3. **Before creating, validate template completeness:**
 
-4. **Best practices**:
+   For the SRE template, ALL of the following sections must be non-empty before posting:
+
+   | Section | What "filled" means |
+   |---|---|
+   | **User Story** | Actual story, not just `As a ___, I want to...` placeholder |
+   | **Issue Description** | Substantive detail beyond the placeholder |
+   | **Why This Is Important** | Plain-language explanation of value/impact |
+   | **Target Audiences** | At least one checkbox checked with a one-line impact note |
+   | **Tasks** | At least one specific, actionable task |
+   | **Acceptance Criteria** | At least one non-technical AC item |
+   | **Validation** | Steps to confirm the work is done |
+
+   Also cross-check:
+   - Tasks and AC must be consistent with the Issue Description — flag any gaps or contradictions
+   - If anything is still a placeholder or empty, fix it before creating
+
+4. **Ask priority and assignment before creating:**
+
+   Before running `gh issue create`, ask:
+   1. **Backend or frontend?** (default: `backend` for SRE work)
+   2. **Priority?** Choose one: `Critical` / `High` / `Medium` / `Low`
+      - If this is a child ticket: ask for the parent epic number, look up its priority, and default the child to the same value. State the inherited priority explicitly — e.g., "Epic #1234 is High — defaulting this ticket to High as well. Change it?"
+   3. **Self-assign?** "Do you want to assign this ticket to yourself?" (optional — only if they say yes)
+
+5. **Create the ticket via `gh cli`**:
+   - Default repo: `software/va.gov-team` on `va.ghe.com`
+   - Create the issue (do NOT include priority as a label — it's set as a project field below):
+     ```bash
+     GH_HOST=va.ghe.com gh issue create \
+       --repo software/va.gov-team \
+       --title "..." \
+       --body "..." \
+       --label "needs-refinement,platform-sre-team,backend"
+     ```
+   - If self-assign was requested, add assignee after creation:
+     ```bash
+     GH_HOST=va.ghe.com gh issue edit <number> \
+       --repo software/va.gov-team \
+       --add-assignee "@me"
+     ```
+   - Post the context comment immediately after (capture issue number from create output):
+     ```bash
+     GH_HOST=va.ghe.com gh issue comment <number> \
+       --repo software/va.gov-team \
+       --body "..."
+     ```
+   - **Set Priority in the Platform SRE Team project** (priority is a project field, not a label):
+
+     Priority option IDs for project `PVT_kwDOAAEG5c1Ayg`, field `PVTSSF_lADOAAEG5c1Ays4ABAXo`:
+     - Critical → `0e29c0f7`
+     - High → `5409f419`
+     - Medium → `0785da85`
+     - Low → `c845550a`
+     - Trivial → `182baf0b`
+
+     ```bash
+     # 1. Get the project item ID (issue is auto-added via platform-sre-team label)
+     ITEM_ID=$(GH_HOST=va.ghe.com gh api graphql -f query='
+     query($num: Int!) {
+       repository(owner: "software", name: "va.gov-team") {
+         issue(number: $num) {
+           projectItems(first: 5) {
+             nodes { id project { id } }
+           }
+         }
+       }
+     }' -F num=<number> --jq '.data.repository.issue.projectItems.nodes[] | select(.project.id == "PVT_kwDOAAEG5c1Ayg") | .id')
+
+     # 2. Set the Priority field
+     GH_HOST=va.ghe.com gh api graphql -f query='
+     mutation($proj: ID!, $item: ID!, $field: ID!, $opt: String!) {
+       updateProjectV2ItemFieldValue(input: {
+         projectId: $proj itemId: $item fieldId: $field
+         value: { singleSelectOptionId: $opt }
+       }) { projectV2Item { id } }
+     }' \
+       -f proj="PVT_kwDOAAEG5c1Ayg" \
+       -f item="$ITEM_ID" \
+       -f field="PVTSSF_lADOAAEG5c1Ays4ABAXo" \
+       -f opt="<priority_option_id>"
+     ```
+
+     If `ITEM_ID` is empty, the label automation may not have fired yet — wait 2–3 seconds and retry the item lookup once before giving up.
+
+   - If a different repo is specified in `$ARGUMENTS`, use that instead
+   - For SRE template, always include `needs-refinement` and `platform-sre-team` labels
+   - Do NOT save markdown files — create directly in GitHub
+
+6. **Best practices**:
    - Be specific and actionable in tasks
    - Keep ticket body scannable — no walls of text
    - Context comment can be longer and more detailed
@@ -118,20 +243,26 @@ As a [role], I want [goal] so that [benefit].
 
 ## Tasks
 
-- [ ] [Specific actionable task 1]
-- [ ] [Specific actionable task 2]
-- [ ] [Specific actionable task 3]
+- [ ] [Verb: Add/Write/Update/Fix/Test] [specific deliverable with clear success state]
+- [ ] [Example: Add login button to homepage and verify it opens auth modal]
+- [ ] [Example: Write unit tests for password validator (>80% coverage)]
 
 ## Acceptance Criteria
 
-- [ ] [Measurable outcome 1]
-- [ ] [Measurable outcome 2]
-- [ ] [Measurable outcome 3]
+- [ ] [Observable outcome a non-technical person can verify]
+- [ ] [Example: Users can click "Log In" and see the login form]
+- [ ] [Example: All validation errors appear in plain English below each field]
+- [ ] [Example: Form successfully submits valid credentials and redirects to dashboard]
 
 ## References
 
 - [Related issue or PR](url)
 ```
+
+**Format guidance:**
+- **Each task:** 1–4 hours, can be done independently, has one clear success state
+- **Each AC:** Avoid jargon; write as if explaining to a product manager (not a developer)
+- **PR title after creation:** Include ticket number, e.g., `[#12345] Add login button to homepage`
 
 **Context comment** (posted as first comment after ticket creation):
 
@@ -162,21 +293,32 @@ As a ___________, I want to ______________, so that _______________.
 _What details are necessary for understanding the specific work or request tracked by this issue?_
 
 ## Why This Is Important
-_Explain in plain language why this work matters. Assume the reader has no technical background — focus on the problem being solved, who benefits, and any associated cost or time savings._
+Explain in plain language why this work matters. Assume the reader has no technical background — focus on the problem being solved, who benefits, and any associated cost or time savings.
+
+**Example:** "Currently, vets can't reset their password, which forces support to do manual resets. This takes support 30 min/day and frustrates users."
 
 ## Target Audiences
-_Check all that apply and briefly describe the impact._
+Check all that apply and briefly describe the impact.
 
-- [ ] **Veterans** —
-- [ ] **VFS Teams** —
-- [ ] **Platform** —
-- [ ] **Other** —
+- [ ] **Veterans** — [e.g., "Can now self-serve password resets without contacting support"]
+- [ ] **VFS Teams** — [e.g., "Reduces support burden by 2 hours/day"]
+- [ ] **Platform** — [e.g., "Improves auth reliability"]
+- [ ] **Other** — [describe]
 
 ## Tasks
-- [ ] _What work is necessary for this story to be completed?_
+Each task should be specific, actionable, and completable in 1–4 hours.
+
+- [ ] [Verb: Add/Write/Update/Fix/Test] [specific deliverable with success state]
+- [ ] Example: "Add 'Forgot Password' link to login form and verify it redirects to reset page"
+- [ ] Example: "Write unit tests for password reset email validation (>80% coverage)"
 
 ## Acceptance Criteria
-- [ ] _What will be created or happen as a result of this story?_
+Write outcomes a non-technical person can verify. Avoid jargon.
+
+- [ ] [Observable result someone can test without code access]
+- [ ] Example: "Users receive a password reset email within 5 seconds of requesting one"
+- [ ] Example: "Reset link expires after 24 hours"
+- [ ] Example: "Password strength rules are clearly displayed during reset"
 
 ---
 
@@ -418,6 +560,24 @@ As a [role], I want [goal] so that [benefit].
 - Do NOT put unverified technical claims in tickets
 - If you can't verify something, say so — never fill gaps with guesses
 
+## Validation Before Creation
+
+**Before posting the ticket, verify:**
+
+1. **Acceptance Criteria are non-technical** — Remove all jargon. If a stakeholder wouldn't understand a word, rewrite it.
+   - ❌ "Implement OAuth2 refresh token logic" → ✅ "Users stay logged in for 24 hours without re-entering password"
+   - ❌ "Optimize database indexes" → ✅ "User searches return results in <2 seconds"
+
+2. **Each task is specific and actionable** — Start with a verb, be completable in 1–4 hours
+   - ❌ "Fix auth" → ✅ "Fix login form error message: show plain text instead of error code"
+   - ❌ "Write tests" → ✅ "Write unit tests for new password validator function (target >85% coverage)"
+
+3. **Ticket has a clear user story** — Who benefits and how? Why now?
+
+4. **References are included** — Related issues, PRs, docs, Confluence links if context is large
+
+5. **PR will include ticket number** — Remind user: `[#12345] description` in PR title
+
 ## Tips
 
 - One issue per ticket (don't combine unrelated work)
@@ -425,15 +585,17 @@ As a [role], I want [goal] so that [benefit].
 - Tasks should be specific enough to start working immediately
 - If context exceeds what fits in a comment, suggest a Confluence doc
 - Label with `platform-sre-team` when applicable
+- **Reject vague tasks or jargon-heavy AC.** Ask for clarification before creating.
 
 ## What This Bot Does
 
 - Drafts lean ticket body + separate context comment
-- Saves both to `~/tickets/` for review
+- Creates the GitHub issue directly via `GH_HOST=va.ghe.com gh issue create`
+- Posts context as a follow-up comment via `gh issue comment`
 - Asks clarifying questions rather than assuming
 
 ## What This Bot Does NOT Do
 
-- Create GitHub issues automatically (you copy/paste)
+- Save markdown files (creates directly in GitHub)
 - Make assumptions about requirements or implementation
 - Put background context in the ticket body (that goes in comments)
