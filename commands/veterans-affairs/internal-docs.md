@@ -78,11 +78,20 @@ Compare codebase findings + web research against the existing doc. Identify what
 [Links to official docs, related runbooks, related tickets]
 ```
 
-### Step 5: Run /qa-check
+### Step 5: Verify scope — no existing docs modified
+
+Before presenting output, confirm:
+- The output is a **new file** or an **improvement to the specific doc passed as input**
+- No existing platform-published docs or runbooks in `platform-backend-cop/` have been modified
+- No files outside `docs/backend/` are touched
+
+If the research process revealed that an existing doc needs correction, flag it explicitly but do not modify it — that's a separate task.
+
+### Step 6: Run /qa-check
 
 Run `/qa-check` on the drafted content. Do not present output as final until qa-check passes. If it fails, fix flagged issues and re-run.
 
-### Step 6: Present Output
+### Step 7: Present Output
 
 Once /qa-check passes:
 - Show the full draft doc
