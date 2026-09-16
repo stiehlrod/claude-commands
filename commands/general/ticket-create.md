@@ -281,7 +281,7 @@ As a [role], I want [goal] so that [benefit].
 
 Use when `/ticket-create sre` is specified. Mirrors the canonical `platform-product-validation.md` issue template on GHEC-US so created tickets match what the form-based template produces.
 
-**Default labels** (apply on creation): `needs-refinement`, `platform-sre-team`
+**Default labels** (apply on creation): `needs-refinement`, `platform-sre-team`, `backend`
 
 **Ticket body:**
 
@@ -562,21 +562,36 @@ As a [role], I want [goal] so that [benefit].
 
 ## Validation Before Creation
 
-**Before posting the ticket, verify:**
+**Before posting the ticket, verify ALL of the following:**
 
-1. **Acceptance Criteria are non-technical** — Remove all jargon. If a stakeholder wouldn't understand a word, rewrite it.
+1. **Every URL resolves — no exceptions.**
+
+   Extract every URL from the ticket body AND the context comment. For each one:
+
+   - **GitHub issues/PRs** (`va.ghe.com/software/*/issues/*` or `*/pull/*`): verify with `GH_HOST=va.ghe.com gh api repos/software/<repo>/issues/<number> --jq '.number'`
+   - **GitHub file paths** (`va.ghe.com/software/*/blob/*`): verify with `GH_HOST=va.ghe.com gh api repos/software/<repo>/contents/<path> --jq '.name'`
+   - **Confluence pages** (`vfs.atlassian.net/wiki/*`): verify with `curl -sI <url> | head -1` — must return `200`, not `404` or redirect loop
+   - **Any other URL**: verify it returns a non-error response before including
+
+   If a URL cannot be verified:
+   - **Do not include it** — remove it from the ticket
+   - Note the removal to the user after posting
+
+   **This check blocks ticket creation.** A ticket with a broken link will be sent back.
+
+2. **Acceptance Criteria are non-technical** — Remove all jargon. If a stakeholder wouldn't understand a word, rewrite it.
    - ❌ "Implement OAuth2 refresh token logic" → ✅ "Users stay logged in for 24 hours without re-entering password"
    - ❌ "Optimize database indexes" → ✅ "User searches return results in <2 seconds"
 
-2. **Each task is specific and actionable** — Start with a verb, be completable in 1–4 hours
+3. **Each task is specific and actionable** — Start with a verb, be completable in 1–4 hours
    - ❌ "Fix auth" → ✅ "Fix login form error message: show plain text instead of error code"
    - ❌ "Write tests" → ✅ "Write unit tests for new password validator function (target >85% coverage)"
 
-3. **Ticket has a clear user story** — Who benefits and how? Why now?
+4. **Ticket has a clear user story** — Who benefits and how? Why now?
 
-4. **References are included** — Related issues, PRs, docs, Confluence links if context is large
+5. **References are included** — Related issues, PRs, docs, Confluence links if context is large
 
-5. **PR will include ticket number** — Remind user: `[#12345] description` in PR title
+6. **PR will include ticket number** — Remind user: `[#12345] description` in PR title
 
 ## Tips
 
