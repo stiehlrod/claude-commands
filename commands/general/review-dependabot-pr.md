@@ -204,24 +204,27 @@ There is no curation step. The verdict is the output. The user may still
 disagree (a risk they know to be settled, a jump they want held back); that
 conversation happens here, before anything is posted.
 
-## Stage 6: Validation ticket (only on Needs investigation)
+## Stage 6: Validation ticket (required on Needs investigation)
 
-Before the comment is posted, so the comment can link the ticket, ask via
-`AskUserQuestion`: "Open a validation ticket for the risks in PR #<n>?" with
-options **Yes, open the ticket** and **No, comment only**.
+A PR that is not safe to merge always gets a validation ticket, created
+before the comment is posted so the comment can link it. Do not ask whether
+to open one.
 
-On yes, draft the ticket body from the template below, show it in full, and
-create it only after explicit approval:
+Create it by invoking the `/create-ticket` skill (Skill tool,
+`skill: "create-ticket"`), passing as args the PR link, the verdict, and
+the full risk list, PR defects, and blanket notes from Stage 5. The content
+below is the contract the ticket must meet: hand it to `/create-ticket` as
+the material to draft from, and fold it into that skill's own template
+(Summary → Background; Tasks and Acceptance criteria carry over as written).
+`/create-ticket` owns labels, presenting the draft for approval, and
+creating the issue; follow its steps rather than running `gh issue create`
+here. Title: "Validate breaking changes in <bot> dependency bump (PR #<n>)".
 
-```bash
-GH_HOST=<host> gh issue create --repo <tracking-repo> --title "Validate breaking changes in <bot> dependency bump (PR #<n>)" --body-file <work>/ticket-<n>.md
-```
+The tracking repo is the PR's repo unless the user names another. If the
+target is not the cwd repo or is on an enterprise host, tell
+`/create-ticket` the exact `--repo <owner/repo>` and `GH_HOST=<host>` to use.
 
-The tracking repo is the PR's repo unless the user names another. Teams with
-their own issue-drafting skill or template should invoke that instead of
-this inline template; the content contract is the same.
-
-Ticket body template:
+Ticket content:
 
 ```markdown
 ## Summary
