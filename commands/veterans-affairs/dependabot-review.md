@@ -28,7 +28,9 @@ verdict comment) combined with the vets-api rotation rules (scary gems,
 
 Repo and host are fixed: `software/vets-api` on `va.ghe.com`. Every `gh`
 command targeting the PR repo is prefixed with `GH_HOST=va.ghe.com`. Upstream
-gem repos live on `github.com`, so reads against them take no `GH_HOST`.
+gem repos live on `github.com`; reads against them use
+`gh api --hostname github.com ...` (a bare `gh api` can 404 when the default
+host is the enterprise one).
 
 ## Contracts
 
@@ -44,7 +46,9 @@ vets-api code, tests, `bundle`, builds, installs, or one-off scripts.
 settled by executing something is reported as exactly that, and that is what
 turns a breaking change into a risk. Subagents may **read** upstream metadata
 (release notes, tags, compare views, CHANGELOG files, rubygems.org API) via
-`gh api` or WebFetch reads.
+`gh api --hostname github.com` or WebFetch reads. A claim about when a job
+runs (or skips) must cite its schedule in `lib/periodic_jobs.rb`, not just the
+job's own guard clauses.
 
 **Git shape.** Every git command is `git -C <repo-path> <op>`, never `cd`.
 Subagent ops are read-only: `show <ref>:<path>`, `grep <pattern> <ref> --
@@ -133,10 +137,12 @@ the human decides.
 
 5. **Freshen the checkout once.** Use `~/github/vets-api` if its `origin`
    points at `software/vets-api`. Run `git -C <checkout> fetch origin
-   --quiet`, then `git -C <checkout> rev-list --count HEAD..@{upstream}`.
-   **Even**: subagents read the working tree. **Behind, ahead, or no
-   upstream**: subagents use git ref reads against `origin/<base>`. No
-   checkout: usage lookups are marked unverified.
+   --quiet`, then compare the working tree to the PR's base branch, not to
+   whatever branch is checked out:
+   `git -C <checkout> rev-parse HEAD origin/<base>`.
+   **Same SHA**: subagents read the working tree. **Different (feature
+   branch, behind, or ahead)**: subagents use git ref reads against
+   `origin/<base>`. No checkout: usage lookups are marked unverified.
 
 ### Step 2: Inventory (one subagent per PR)
 
@@ -216,7 +222,9 @@ It returns: a per-check status table, a three-line-max failure summary per
 failing check with quoted evidence lines, and a judgment per failure:
 related to this bump, pre-existing on master (check recent master runs), or
 unclear. Green does not mean it ran; skipped or not-required checks are
-reported as such.
+reported as such. **Backend Approval Check** failing ("Requires approval from
+backend-review-group") is the `require-backend-approval` gate, not a test
+failure; report it as a merge prerequisite.
 
 If the inventory lists `.rb` or config changes, the same subagent reviews
 them like a normal PR diff (diff lines only) and returns findings with
@@ -326,8 +334,8 @@ Map the verdict to the next step and present it as a one-question
 
 | Verdict | Recommended action |
 |---------|--------------------|
-| ✅ Safe to merge | Human posts `@dependabot merge` after the daily deploy |
-| ⚠️ Merge with caution | Human posts `@dependabot merge` after the daily deploy; monitor the known-issue area before the next deploy |
+| ✅ Safe to merge | Human approves as backend-review-group, then posts `@dependabot merge` after the daily deploy |
+| ⚠️ Merge with caution | Human approves as backend-review-group, then posts `@dependabot merge` after the daily deploy; monitor the known-issue area before the next deploy |
 | 🔍 Needs investigation | Post the comment (`gh pr comment`); leave the PR open until the ticket lands |
 | 🔴 Do not merge | Post the comment (`gh pr comment`) describing the defect or CI failure |
 
