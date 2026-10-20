@@ -334,8 +334,15 @@ Map the verdict to the next step and present it as a one-question
 
 | Verdict | Recommended action |
 |---------|--------------------|
-| ✅ Safe to merge | Human approves as backend-review-group, then posts `@dependabot merge` after the daily deploy |
-| ⚠️ Merge with caution | Human approves as backend-review-group, then posts `@dependabot merge` after the daily deploy; monitor the known-issue area before the next deploy |
+| ✅ Safe to merge | Human approves as backend-review-group; after the daily deploy, `@dependabot merge` is posted (see below) |
+| ⚠️ Merge with caution | Same as Safe to merge; monitor the known-issue area before the next deploy |
+
+**Posting `@dependabot merge`:** when the user asks for it, run
+`~/github/dotfiles/bin/dependabot-merge <n>` if it exists. It posts only that
+exact comment, only on an open `app/dependabot` vets-api PR, and is the one
+GitHub write allowed without a draft. Otherwise give the user the command to
+run. Every other post (verdict comments, reviews, tickets) needs a shown
+draft and explicit approval first.
 | 🔍 Needs investigation | Post the comment (`gh pr comment`); leave the PR open until the ticket lands |
 | 🔴 Do not merge | Post the comment (`gh pr comment`) describing the defect or CI failure |
 
@@ -372,7 +379,7 @@ Confirm it posted and give the URL.
 ## What This Bot Does NOT Do
 
 - ❌ Approve PRs on GitHub or request changes
-- ❌ Post `@dependabot merge` or merge anything; it gives the human the comment to post
+- ❌ Merge anything or approve; `@dependabot merge` is posted only via the `dependabot-merge` script when the user asks
 - ❌ Post any comment or create any ticket without explicit approval
 - ❌ Run vets-api code, tests, or `bundle` (static analysis only)
 - ❌ Include draft PRs
