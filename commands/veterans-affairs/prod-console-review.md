@@ -41,7 +41,7 @@ Extract the following fields from the issue body (the template renders them with
 Check if the vets-api repo is available locally and pull latest from `origin/master`. If the local branch has diverged, read files via `git show origin/master:<path>` rather than local files.
 
 ```bash
-cd ~/github/ghec/vets-api
+cd ~/github/vets-api
 git fetch origin master
 git log HEAD..origin/master --oneline | head -5
 ```
@@ -67,8 +67,9 @@ Evaluate each item and mark PASS / ISSUE:
 
 **PHI/PII Self-Report Accuracy**
 - Requester answered PHI/PII = "No" — does the script actually pull PHI/PII (SSNs, ICNs, names, claim details, health data)?
-- If yes: this is a policy violation — Platform Support cannot run PHI/PII scripts; must go to a Federal Engineer
+- If yes: not a blocker, but the request is mis-declared. PII/PHI **is** permitted; it changes how results are handled
 - Check every `puts` / `p` / `pp` / `inspect` / `Rails.logger` call for PII fields
+- If PII/PHI is present, confirm: results go by **encrypted VA email only** (VA address to VA address), identifiers are not pasted into the issue body, and the output returns only what is needed with masking where possible
 
 **Read-Only vs. Modifying Accuracy**
 - Requester said "read-only" — does the script actually write anywhere?
@@ -86,6 +87,15 @@ Evaluate each item and mark PASS / ISSUE:
 **Idempotency**
 - Can the script be safely re-run if the first run partially failed?
 - Does any write have a guard clause preventing duplicates?
+
+**Script Size and Readability**
+- Target is **under 100 lines**. This is guidance, not a hard gate
+- Over 100 lines: flag that it likely belongs in a PR-reviewed rake task rather than a console session
+- Defining several methods or classes is a signal it belongs in a rake task regardless of line count
+- Is the code readable enough that the person running it could spot something going wrong mid-session?
+
+**Attribution**
+- Does the request carry an issue number that can be put into the `console1984` session prompt?
 
 **Blast Radius**
 - How many records are affected?
@@ -142,7 +152,7 @@ Write a structured evaluation with:
 - <item>
 
 ### Output Handling Note
-<If PHI/PII in output: "Results contain PHI/PII — send via Onceler only. Verify requester's Onceler username before running.">
+<If PII/PHI in output: "Results contain PII/PHI — send by encrypted VA email only, from a VA address to a VA address. Confirm the recipient VA email address before running. Do not return results via Slack or unencrypted email.">
 <If output is safe: note it>
 
 ### Verdict
@@ -150,7 +160,7 @@ Write a structured evaluation with:
 - **SAFE TO RUN** — no issues found
 - **CONDITIONALLY SAFE** — safe after addressing [specific issues]
 - **NOT SAFE TO RUN** — must be revised before execution
-- **POLICY VIOLATION** — PHI/PII or unauthorized write; route to Federal Engineer
+- **POLICY VIOLATION** — unauthorized write, or PII/PHI being returned by a channel other than encrypted VA email
 
 <Summary of required actions before execution>
 ```
@@ -172,7 +182,7 @@ Do not present the evaluation as final until it passes `/qa-check`.
 - Reads referenced vets-api models and jobs directly from `origin/master`
 - Verifies method signatures, nil safety, idempotency, and PII exposure
 - Cross-checks requester's PHI/PII and read-only claims against what the script actually does
-- Flags policy violations (PHI/PII commands must go to a Federal Engineer, not Platform Support)
+- Flags mis-declared PII/PHI and checks that results are routed to encrypted VA email
 - Validates staging test and rollback plan claims
 - Runs /qa-check on all findings before surfacing them
 
@@ -182,4 +192,4 @@ Do not present the evaluation as final until it passes `/qa-check`.
 - Approve the request — that decision stays with the human reviewer
 - Skip /qa-check even if findings appear straightforward
 - Read from a stale local branch when `origin/master` is available
-- Run PHI/PII commands — always routes those to a Federal Engineer per policy
+- Approve PII/PHI handling on its own — if anything about a request feels off, escalate to Jennifer Kramer
