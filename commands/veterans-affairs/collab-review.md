@@ -70,7 +70,7 @@ Identify the touchpoint from the ticket's labels: `architecture-intent`, `stagin
 - Eng Development Plan
 - [User data flow diagram](https://va.ghe.com/software/va.gov-team-sensitive/blob/master/platform/practices/zero-silent-failures/how-to-create-a-user-data-flow-diagram.md), only if the application accepts data from a user
 Architecture and data flow diagrams go under the plan's References section. Sequence diagrams aren't asked for until the Eng Launch Plan.
-**Focus:** High-level design, security approach, data handling strategy, and the observability plan (see "Monitoring and Observability" below)
+**Focus:** High-level design, security approach, data handling strategy, and the backend side of observability (see "Monitoring and Observability" below)
 
 ### Staging Review
 **When:** Pre-launch review after development is complete, for work that changes the Veteran experience
@@ -106,7 +106,7 @@ Repos have migrated from `github.com/department-of-veterans-affairs` to GHEC-US:
    - **If a required artifact is missing** (most often the Eng Development Plan or Eng Launch Plan), don't hold the whole review. Draft a short Missing Artifacts Post (see "Missing Artifacts Post" under Output Format) so the team knows exactly what to upload and how to tell you it's there
    - A ✴️ Launch Plan section left blank is fine for a front-end-only change. Check vets-api before accepting that the change is front-end only
 6. Review against applicable backend checklists
-7. **Read the other reviewers' comments on the ticket** (`GH_HOST=va.ghe.com gh api repos/software/va.gov-team/issues/{number}/comments --paginate`). If Security, DevOps, Frontend, or another Platform reviewer already raised an item, leave it out of the Post. Don't cross-reference it either; note it in Discussion Notes as "Already raised by {reviewer}"
+7. **Read the other reviewers' comments on the ticket** (`GH_HOST=va.ghe.com gh api repos/software/va.gov-team/issues/{number}/comments --paginate`). Also read the parent Collab Cycle ticket's comments and, at Staging Review, the sibling Architecture Intent ticket's: backend feedback and team replies sometimes live there instead. For each comment note who wrote it and their role. If Security, DevOps, Frontend, Watchtower (observability), or another Platform reviewer already raised an item, leave it out of the Post. Don't cross-reference it either; note it in Discussion Notes as "Already raised by {reviewer}"
 8. **Create review markdown file**: Save review with **two sections** (Post + Discussion Notes) to `/Users/jennicastiehl/github/.claude/claude-results/collab-reviews/YYYY-MM-DD-ISSUE-NUMBER-[review-type]-[description].md` (e.g., `2025-12-08-107829-arch-intent-travel-pay-complex-claims.md` or `2025-11-21-98765-staging-review-form-upload-multi-file.md`)
 9. Provide concise Post section (for GitHub comment) and detailed Discussion Notes section (for meeting)
 10. Include file:line references for code issues in Discussion Notes
@@ -124,7 +124,7 @@ No waiver is available for Staging Review or Eng & Sec Staging Review.
 
 1. Review the Initiative overview for the problem statement
 2. Review the Eng Development Plan: Technical approach, Guidelines confirmation, and any questions the team raised for Platform. Answer their questions where you can
-3. Review artifacts linked under References (architecture/data flow diagrams, external API docs, related PRs)
+3. Review artifacts linked under References (architecture/data flow diagrams, external API docs, related PRs). Check the diagrams against any code that already exists: are all external calls and data stores shown, and does each described flow match what the code does (e.g., a filter's direction, a service called per record that the diagram omits)? A mismatch is a Recommendation to update the diagram
 4. **Verify claims by checking vets-api for existing related code**
    - Search vets-api for any existing code related to the feature (even if the plan says "no backend changes")
    - Check for existing controllers, models, services, or modules that might be affected
@@ -153,13 +153,15 @@ Artifacts must be linked and unchanged for 4 working days before the meeting, an
 
 1. Verify Eng Launch Plan provided (or a legacy Engineering & Security Checklist for in-flight teams), and that the Guidelines confirmation is checked
    - Compare the plan's "Backend changes", "Data storage & PII/PHI changes", and "Logging & metrics changes" sections against the actual PRs. A mismatch between the plan and the code is a finding
+   - Check the architecture, sequence, and data flow diagrams against the code the same way (all external calls and data stores shown; each flow matches the code)
 2. **Review Architecture Intent feedback - verify all addressed**
    - Fetch ALL comments from the Collab Cycle ticket using `GH_HOST=va.ghe.com gh api repos/software/va.gov-team/issues/{number}/comments`
    - Look for comments from Platform reviewers (e.g., LindseySaari, va-albers, platform-engineering team members) containing Architecture Intent feedback
    - These comments typically contain "Must", "Should", "Consider" items that the team was asked to address
    - **IMPORTANT:** Also review the team's responses to feedback - they may have addressed items in comments, provided context, or explained why certain items don't apply
    - Check the full conversation thread to understand the resolution status of each item
-   - Verify each item was addressed in the implementation OR adequately responded to in comments
+   - **The code decides, not the reply.** Verify each item in the implementation (PR, file:line). A team reply like "tracking this" or "will do" is NOT Addressed. A reply that explains why the item doesn't apply counts as Resolved in discussion only if the code or facts back it up
+   - Any item still open must also appear as its own tagged item in the Post. Exception: if another reviewer already raised it on this ticket, keep it only in the table and note "also raised by {reviewer}"
    - Include a section in the review documenting which Architecture Intent items were addressed, which were resolved via discussion, and which remain open
 3. **CRITICAL: Always verify claims by checking vets-api code directly**
    - **Never trust "no backend changes" claims without verification** - always search vets-api to confirm
@@ -179,8 +181,8 @@ Artifacts must be linked and unchanged for 4 working days before the meeting, an
    - Caching (encryption, per-user keys, TTL, instance choice; see "Caching")
    - Database Migrations (zero-downtime, forward-only, indexed)
    - VCR Testing (no sensitive data in cassettes, proper filtering)
-   - Monitoring & Observability (Datadog dashboards, StatsD metrics, structured logs, alerting, service catalog entry; see "Monitoring and Observability")
-   - Rollout (Flipper flags and whether they stay after launch, rollback path in the Release Plan, Project Runbook)
+   - Monitoring & Observability (StatsD metrics and structured logs the new code emits, plus the Launch Plan's monitoring plan and QA6/QA7 artifacts against that code; see "Monitoring and Observability" for what is Watchtower's lane)
+   - Rollout (Flipper flags and whether they stay after launch, rollback path and trigger in the Release Plan, Project Runbook; see "Rollback checks")
 5. Test backend endpoints in staging (if accessible via curl/Postman)
 6. Identify findings (ask: Would this cause production issues? Compromise security?)
 7. Determine if findings are launch-blocking
@@ -204,8 +206,8 @@ The review markdown file contains **two sections**: a concise **Post** section f
 Concise, scannable, organized by priority. No deep explanations; those go in the Discussion Notes. This is what gets posted on the Collaboration Cycle ticket, and it's the only part of the review the team sees, so an engineer who hasn't read the standard should be able to act on each item without asking a follow-up.
 
 **Post rules:**
-- **Always write one**, even when there are no concerns (heading + one-line BLUF only; see BLUF Examples)
-- **Every item states its launch-blocking status** in the item line itself: `(launch-blocking)` or `(not launch-blocking)`. Don't rely on the section heading alone; teams skim. The BLUF also gives the launch-blocking count, including "0 launch-blocking"
+- **Always write one**, even when there are no concerns: heading, one-line BLUF, and a short "What was checked" section (one line on what you read, e.g. "Checked the PR diffs, VCR cassettes, and the monitoring doc for the new `/v0/foo` endpoint.", then plain bullets of what you confirmed) so the team can see the review had substance. Omit that section when there are findings. See BLUF Examples
+- **Every item states its launch-blocking status** in the item line itself: `(launch-blocking: <criterion>)` or `(not launch-blocking)`, with the criterion ID from "Launch-Blocking Criteria". At Architecture Intent use `(launch-blocking at Staging: <criterion>)` or `(not launch-blocking)`. Don't rely on the section heading alone; teams skim. The BLUF also gives the launch-blocking count, including "0 launch-blocking"
 - **Every item says what to change and why, in plain language.** One sentence for the ask, one plain sentence for why it matters (e.g., "Structured logs let you filter by field in Datadog when something breaks.")
 - **Every item links the standard it's based on**: at most one link per item, to the most specific heading that fits (see "Linking Standards"). If the item rests on reviewer guidance with no published source (e.g., the 90-day retention rule of thumb), don't link anything and don't call it a standard; word it as a question
 - **Only link things the team can open**: public Platform docs, their own repo/PR/checklist, vets-api code. Never link the reviewer's local files, internal notes, or private repos. Code references go as `[file.rb:123](va.ghe.com URL)`, which don't count toward the one-link limit
@@ -225,7 +227,7 @@ Concise, scannable, organized by priority. No deep explanations; those go in the
 | [Item from AI feedback] | Must/Should/Consider | ✅ Addressed / ⚠️ Partially / ❌ Not addressed | [Brief note] |
 
 ### Launch-blocking
-- [ ] **[Item title]** (launch-blocking) - [What to change.] [Why it matters, one plain sentence.] Standard: [Doc page: Heading](URL#anchor)
+- [ ] **[Item title]** (launch-blocking: [criterion]) - [What to change.] [Why it matters, one plain sentence.] Standard: [Doc page: Heading](URL#anchor)
 
 ### Highly Recommended
 - [ ] **[Item title]** (not launch-blocking) - [What to change.] [Why it matters.] Standard: [Doc page: Heading](URL#anchor)
@@ -257,6 +259,8 @@ When a required artifact is missing, post this instead of (or ahead of) the revi
 
 Once it's uploaded, please tag @Jennica-Stiehl in a comment on this ticket and I'll pick the review back up.
 ```
+
+At Staging Review and Eng & Sec Staging Review, a required artifact that is missing or still a blank template is `(launch-blocking: Missing artifact)`; list it as an item under Launch-blocking in the main Post. At Architecture Intent it is not launch-blocking.
 
 Only list artifacts the touchpoint actually requires (see "Review Types"). Verify each one is missing by checking the ticket body, its comments, the team's product folder, and the legacy checklist folder in `va.gov-team-sensitive` before saying it isn't there.
 
@@ -292,6 +296,14 @@ _For meeting discussion — not posted to GitHub ticket._
 |---|---|---|
 | [Claim from checklist] | ✅ / ⚠️ / ❌ | [What was found in vets-api] |
 
+### Artifacts Read and Unknowns
+
+| Artifact or file | Source and SHA | Date | Notes |
+|---|---|---|---|
+| [Eng Development Plan / Eng Launch Plan / diagrams / vets-api file] | [repo@sha] | [commit date] | [TBDs, placeholders, dead links] |
+
+**Unknown** (couldn't verify, and why: no Datadog access, dead link, stale clone, unfetchable Figma/TestRail). An Unknown is never reported as verified, and never becomes a Post item on its own; turn it into a question for the team only if it matters. Omit the list if nothing is Unknown.
+
 ### Concerns Resolved by Inherited Patterns
 
 These items were investigated but do NOT need action — they are handled by existing mechanisms:
@@ -303,6 +315,10 @@ These items were investigated but do NOT need action — they are handled by exi
 | Error handling for BGS prefill | Breakers circuit breaker | `EVSS::Service` uses `Breakers::Service` — failures raise `Common::Exceptions::BackendServiceException`, caught by `ApplicationController#render_errors` |
 
 _Only list items you actually verified in code. Name the specific class, method, or module._
+
+### Close calls
+
+[Items where the launch-blocking tag was a judgment call, or where you chose "not launch-blocking" because you couldn't confirm. Omit if none.]
 
 ### Item 1: [Same title as Post item 1]
 
@@ -325,26 +341,38 @@ Don't write "to address before Staging Review" in the BLUF.
 
 ## Launch-Blocking Criteria
 
-Mark as **launch-blocking** if the issue:
-- Greatly compromises safety/security of VA.gov
-- Makes infrastructure unstable
-- Drastically outside VA.gov norms and best practices
-- Violates VA.gov Experience Standards
+An item is **launch-blocking** only if it matches a criterion below **and** you have evidence (file:line, artifact link, or a required artifact that is missing). Name the criterion ID in the item's tag. Priority (Highly Recommended / Recommendations) and launch-blocking status are separate decisions; the [Must/Should/Consider framework](https://depo-platform-documentation.scrollhelp.site/collaboration-cycle/must-should-and-consider-framework-for-feedback) says priority "does not indicate whether an issue will be launch-blocking."
+
+| ID | Criterion | Typical backend evidence |
+|---|---|---|
+| `QA2` | No test plan, or it doesn't cover the backend changes | Test plan link missing or a placeholder |
+| `QA5` | Unit coverage under 80% in any category for the code in scope | Coverage report below 80% |
+| `QA6` | Endpoint monitoring gap: an endpoint the product calls has no Datadog monitor for unexpectedly high errors, unexpectedly low traffic, or silent failures; alerts not routed to a monitored Slack channel; or no playbook | New route with no monitor in the monitoring doc |
+| `QA7` | Async submission (Sidekiq, Lighthouse/BGS upload, VA Notify) can fail without the user knowing and there is no StatsD silent-failure metric and dashboard | `sidekiq_retries_exhausted` with no metric |
+| `PII in logs` | PII/PHI reaches Rails logs, Datadog, Sentry, or StatsD tags | `Rails.logger` call with params or a response body |
+| `PII storage` | PII/PHI stored outside approved locations, unencrypted where policy requires it (e.g. Rails.cache/Redis without Lockbox), or persisted with no retention or cleanup | `Rails.cache.write` of clearly-PII payload; new column without encryption |
+| `Secrets` | Credentials or tokens committed (code, config, VCR cassettes) | Cassette with an unfiltered `client_secret` |
+| `Security` | A real vulnerability in backend code: missing authorization on user-scoped data, injection, IDOR, open redirect, unauthenticated access to PII, one user served another's cached data | Controller that skips auth; query not scoped to `current_user`; per-user cache under a shared key |
+| `Unsafe migration` | Index without `algorithm: :concurrently`, column with default on a large table, rename/remove still referenced, data migration inside a schema migration | `db/migrate/*` in the PR diff |
+| `Integration approval` | New external connection without fwdproxy entries, certificates, or required MOU/ISA, PTA/PIA | New `settings.yml` host with no devops PR |
+| `Virus scanning` | User uploads accepted without Platform scanning | Upload endpoint with no scan step |
+| `No kill switch` | No way to turn the feature off in production (no Flipper flag or rollback path), the flag the rollback plan names doesn't exist or doesn't gate the new behavior, or no named incident contact | No flag in `config/features.yml` for new behavior; plan names a flag the code doesn't use |
+| `Missing artifact` | A **required** Staging Review / Eng & Sec Staging Review artifact is missing or still a blank template (Eng Launch Plan, PRs, diagrams, monitoring doc, QA2/QA6/QA7 artifacts, release plan) | Placeholder link in the ticket; TBD in a required section |
+
+**Everything else is `not launch-blocking`**, unless it also hits a row above: missing timeouts, retries, or circuit breakers (becomes `QA7` only if the failure hides from the user); caching behavior other than the rows above; performance and N+1; missing request specs or cassettes while QA5 is met; style, naming, structure, README, serializers; template TBDs in sections that aren't required; unresolved Architecture Intent items (judge each on its merits, since "raised before" alone doesn't make it blocking).
+
+**When unsure, choose `not launch-blocking`** and add a line under "Close calls" in the Discussion Notes. A wrong "launch-blocking" costs the team a launch date; a wrong "not" gets caught when you read the notes.
 
 The [Eng & Sec Staging Review page](https://depo-platform-documentation.scrollhelp.site/collaboration-cycle/engineering-and-security-staging-review) gives "QA standards issues, missing endpoint monitoring, security findings" as launch-blocking examples. The [Staging Review page](https://depo-platform-documentation.scrollhelp.site/collaboration-cycle/staging-review) also lists "QA standards issues", and endpoint monitoring is a QA standard (QA6), so missing endpoint monitoring on a new backend endpoint can be launch-blocking at either Staging Review type. Verify it's actually missing in Datadog/the Launch Plan before saying so. At 25+ total or 10+ launch-blocking findings, Platform pauses and asks for a second Staging Review.
 
-**Staging Review:** label each item `(launch-blocking)` or `(not launch-blocking)` against the criteria above. Add the `launch-blocking` label to the ticket if any item is launch-blocking. Don't add or change labels without the user's approval.
+**Staging Review:** label each item `(launch-blocking: <criterion>)` or `(not launch-blocking)` against the table above. Add the `launch-blocking` label to the ticket if any item is launch-blocking. Don't add or change labels without the user's approval.
 
-**Architecture Intent:** nothing has launched yet, so items are `(not launch-blocking)` by default. If the design as written would meet the criteria above once built (e.g., plaintext PHI in a cache, per-user data under a shared key), label it `(launch-blocking if built as described)` and put it under Highly Recommended, so the team knows it will block at Staging Review.
+**Architecture Intent:** nothing has launched yet, so items are `(not launch-blocking)` by default. If the design as written would meet a criterion above once built (e.g., plaintext PHI in a cache → `PII storage`, per-user data under a shared key → `Security`), label it `(launch-blocking at Staging: <criterion>)` and put it under Highly Recommended, so the team knows what will block at Staging Review. Count these in the BLUF's launch-blocking number.
 
 ## Priority Framework
 
 ### Launch-blocking (Staging Review Only)
-The highest priority - these items must be resolved before launch. Use when the issue:
-- Greatly compromises safety/security of VA.gov
-- Makes infrastructure unstable
-- Is drastically outside VA.gov norms and best practices
-- Violates VA.gov Experience Standards
+The highest priority - these items must be resolved before launch. Use only when the item matches a criterion ID in "Launch-Blocking Criteria" and you have evidence.
 
 Add `launch-blocking` label to ticket if applicable.
 
@@ -410,17 +438,22 @@ Do not include Suggestions in the Post section.
 
 ### Monitoring and Observability (Both Reviews)
 
-Source: [Monitoring and Observability Guidelines](https://va.ghe.com/software/va.gov-team/blob/master/platform/engineering/guidelines/monitoring-and-observability-guidelines.md). Its §11 lists what Architecture Intent reviews; teams "should be able to *answer* these, not demonstrate them":
-- **Golden signals:** for each new service or endpoint, how they'll measure latency, traffic, errors, and saturation
-- **"Is it up? Is it correct?":** which signal answers each, with a target in mind
-- **Logging** through a monitor with the standard envelope; PII handled by the existing scrubbers
-- **Alerting and routing:** which conditions alert, which channel, which team owns the response
-- **Dashboards:** an engineering dashboard, plus an SLO view where relevant
-- **Ownership:** a file in `datadog-service-catalog/` with a real team and Slack channel
-- **Dependencies:** for each new downstream dependency, "how will we know it's down?" and a defined degraded state
-- **Silent failures:** for any Veteran handoff, the stages they'll count and the gap they'd alert on
+Source: [Monitoring and Observability Guidelines](https://va.ghe.com/software/va.gov-team/blob/master/platform/engineering/guidelines/monitoring-and-observability-guidelines.md). Its §1 ("Answer two questions") frames observability as *is it up?* and *is it working correctly for the Veteran?*; the second is the one teams miss, since a service can be green on every server-side monitor while a Veteran silently fails to submit a form. Its §11 lists what Architecture Intent reviews; teams "should be able to *answer* these, not demonstrate them".
 
-At Architecture Intent, a plan that's silent on these is a **Recommendation** worded as a question; don't demand the full list for a small change. §11 has no Staging Review list yet (as of Oct 27, 2026, even though the guidelines readme says it covers both). At Staging Review, check the Launch Plan's "Monitoring and Alerting Plan" and the QA6/QA7 artifacts against what the code actually emits.
+**Lane split with Watchtower.** The Watchtower team runs its own observability review at Architecture Intent (their rubric scores alerting and routing, golden signals, dashboards, up/correct targets, dependencies, silent failures, logging, and rollback). Our split with them: we review the **backend code**, and we don't review the §11 items that are about monitoring setup rather than code (alerting and routing, dashboards, SLO view, `datadog-service-catalog/` ownership). We cover the code side of the same two questions:
+- **Logging** in the new code: through a monitor with the standard envelope, structured, PII handled by the existing scrubbers (see "PII/PHI Classification")
+- **Metrics** the new code emits: a success and a failure StatsD counter per external call, the denominator counted, no high-cardinality tags
+- **Dependencies:** for each new downstream dependency, `breakers` in the client and a defined degraded state in code (what the user sees when it's down)
+- **Silent failures:** swallowed exceptions, `nil` returns that hide dropped data, Sidekiq jobs that can exhaust retries without a metric (QA7)
+- **Kill switch:** the Flipper flag exists and gates the new behavior (see "Rollback checks" below)
+
+If Watchtower or another reviewer already raised an item on the ticket, leave it out (Workflow step 7). At Architecture Intent, a plan that's silent on the backend items above is a **Recommendation** worded as a question; don't demand the full list for a small change. §11 has no Staging Review list yet (as of Oct 27, 2026, even though the guidelines readme says it covers both). At Staging Review, check the Launch Plan's "Monitoring and Alerting Plan" and the QA6/QA7 artifacts against what the code actually emits.
+
+**Rollback checks** (Architecture Intent: ask; Staging Review: verify):
+- The flag named in the Release Plan, Launch Plan, or incident response doc is the flag the code ships behind. Search `config/features.yml` and the controllers. A flag that doesn't exist yet, or that gates only part of the feature (e.g. the read but not the write), is a finding (`No kill switch` at Staging if the named flag can't turn the feature off)
+- The rollback names a concrete trigger (a signal and a threshold). "Monitor for a spike" isn't one. A vague trigger is **Highly Recommended**, not launch-blocking
+
+**Monitor upkeep** (Staging Review): monitors and dashboards cited in the Launch Plan or QA6 doc should open, query the metric the new code actually emits (compare the metric name to the `StatsD` call), and not be pinned to an old time window (§5 "Monitors go stale"). If you can't open Datadog, record it under Unknowns in the Discussion Notes; don't mark it passed.
 
 ### PII/PHI Classification (Both Reviews)
 
@@ -449,8 +482,8 @@ Source: https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-
 
 | Finding | Priority |
 |---------|----------|
-| Per-user data under a shared or predictable key (one user can be served another's data) | **Launch-blocking** |
-| Payload that is clearly PII/PHI stored in plaintext | **Highly Recommended** |
+| Per-user data under a shared or predictable key (one user can be served another's data) | **Launch-blocking** (`Security`) |
+| Payload that is clearly PII/PHI stored in plaintext | **Launch-blocking** (`PII storage`) |
 | Payload whose PII/PHI status is arguable, stored in plaintext | **Highly Recommended**, worded as a question (see below) |
 | No TTL on a cache entry | **Highly Recommended** (on app-data a full instance means failed logins) |
 | New cache on the app-data instance without justification | **Highly Recommended** |
@@ -768,4 +801,12 @@ Re-fetch a guideline before quoting it; these files were edited several times in
    - **Do NOT include any finding you cannot verify to 100% confidence**
    - **Do NOT flag pre-existing technical debt in code the feature merely uses** — only flag issues in code the feature introduces or modifies
 9. **Create review markdown file** with **two sections** (Post + Discussion Notes): Save to `/Users/jennicastiehl/github/.claude/claude-results/collab-reviews/YYYY-MM-DD-ISSUE-NUMBER-[review-type]-[description].md` (e.g., `2025-12-08-107829-arch-intent-travel-pay-complex-claims.md` or `2025-11-21-98765-staging-review-form-upload-multi-file.md`). Use the meeting date for the date prefix, followed by the GitHub issue number. Review types are `arch-intent` or `staging-review`. Description should be a brief hyphenated description of the feature/team.
-10. **Remember:** Focus exclusively on backend concerns - frontend/UX/design/content are handled by other teams
+10. **Self-check before presenting the review:**
+    - every Post item has the right tag form for the touchpoint, and every `launch-blocking` names a criterion from the table
+    - every launch-blocking item is under the Launch-blocking heading (Staging) or tagged `at Staging` (Architecture Intent)
+    - the BLUF counts match the checkbox items (the verification table doesn't count)
+    - every link uses `va.ghe.com/software/...`, none use `github.com/department-of-veterans-affairs`, and each resolves
+    - every `file:line` link points at code you actually read
+    - at Staging, every open Architecture Intent item appears as its own item or is marked as raised by another reviewer
+    - close calls are listed in the Discussion Notes under "Close calls"
+11. **Remember:** Focus exclusively on backend concerns - frontend/UX/design/content are handled by other teams
