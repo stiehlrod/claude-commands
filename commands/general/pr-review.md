@@ -67,11 +67,12 @@ These older queries still work if needed:
 ## Workflow
 
 ### When user provides PR URL(s):
-1. Use `gh pr view <PR#> --json ...` to fetch PR metadata, reviews, comments
+1. Use `gh pr view <PR#> --json number,title,author,labels,reviews,comments,files,...` to fetch PR metadata, reviews, comments. **Always include `labels`** — it drives the Tiger Team check below.
 2. Use `gh pr diff <PR#>` to download the patch file (diff)
-3. Read and analyze all changed files
-4. Provide structured review with specific line number references
-5. Track status: ✅ **APPROVED** or ⚠️ **CONDITIONAL APPROVAL**
+3. Check labels for Tiger Team (see "Tiger Team PRs — Extra Scrutiny") and set the review depth accordingly. Do not mention this in the review comment.
+4. Read and analyze all changed files
+5. Provide structured review with specific line number references
+6. Track status: ✅ **APPROVED** or ⚠️ **CONDITIONAL APPROVAL**
 
 ### When user pastes Slack text (Slack paste mode):
 1. **Extract PR URLs** — regex-match all `https://va\.ghe\.com/[^/]+/[^/]+/pull/\d+` patterns in the pasted text. De-duplicate by PR number. Ignore any URL that is clearly a comment/review link (e.g., contains `#pullrequestreview` or `#discussion`).
@@ -79,7 +80,7 @@ These older queries still work if needed:
    ```
    Found N PR links in Slack paste:
    #12345 | repo | author | [labels]
-   #12346 | repo | author | [labels]
+   🐯 #12346 | repo | author | [labels]   <- Tiger Team PRs get a 🐯 marker (terminal only, never in the posted comment)
    ...
    ```
    Fetch metadata with `GH_HOST=va.ghe.com gh pr view <number> --repo <owner/repo> --json number,title,author,labels,reviews` for each.
@@ -89,7 +90,7 @@ These older queries still work if needed:
    - Exclude PRs with `exempt-be-review` label
    - Exclude PRs already approved by current user (`@me`)
 4. **Show triage result** — list which PRs were excluded and why, then list eligible PRs that will be reviewed.
-5. **Sort and cap** — same order as "next batch": priority team members first, then oldest-first (lowest PR number). Cap at 6 PRs per batch.
+5. **Sort and cap** — same order as "next batch": Tiger Team PRs first, then priority team members, then oldest-first (lowest PR number). Cap at 6 PRs per batch; Tiger Team PRs are never dropped by the cap in favor of non-Tiger-Team PRs.
 6. **Proceed as parallel batch** — follow the same parallel agent flow as "next batch" steps 4–7 below.
 
 ### When user says "next batch":
@@ -108,7 +109,7 @@ These older queries still work if needed:
    - Exclude PRs already reviewed/approved by the current user (`@me`)
    - Prioritize PRs from priority team members first (see memory)
    - Only review NEW PRs not already reviewed in the current session
-3. Sort order: **oldest PRs first** (lowest PR number = longest waiting). Priority team members still go first within each age tier, but age/SLA compliance is the primary sort. The 24-hour SLA starts when a PR has team approval and passing CI — oldest unreviewed PRs are most likely to be approaching or exceeding SLA.
+3. Sort order: **Tiger Team PRs first** (oldest-first among themselves), then everything else by **oldest PRs first** (lowest PR number = longest waiting). Priority team members still go first within each age tier, but for non-Tiger-Team PRs age/SLA compliance is the primary sort. The 24-hour SLA starts when a PR has team approval and passing CI — oldest unreviewed PRs are most likely to be approaching or exceeding SLA.
 4. Review each PR with full diff analysis
 5. **After reviewing new PRs**, always include a "Pending your GitHub approval" section listing PRs that have been reviewed/recommended but the current user has NOT yet approved on GitHub. These are PRs still in the backend-review-group queue that were reviewed in a previous batch. Format:
    ```
@@ -118,6 +119,35 @@ These older queries still work if needed:
    ...
    ```
    This ensures reviewed PRs don't get lost between review and approval.
+
+## Tiger Team PRs — Extra Scrutiny (INTERNAL ONLY)
+
+**Detection:** A PR is a Tiger Team PR if any of its labels matches `tiger team` case-insensitively, treating hyphens, underscores, and spaces as equivalent (`tiger team`, `Tiger Team`, `tiger-team`, `tiger_team`). Check the `labels` field from `gh pr view` — this applies in every mode (explicit URL, Slack paste, next batch). If you can't tell whether a near-match label (e.g. `tigerteam`) is the same thing, treat it as Tiger Team.
+
+**Why:** Tiger Team work is typically urgent, cross-cutting, or written under time pressure, which is when regressions slip through. A "clean" review is not enough for these PRs.
+
+> 🔒 **Confidentiality rule:** The PR author must not be able to tell that extra scrutiny was applied. The review comment must contain **no** mention of Tiger Team, the label, "extra scrutiny", "heightened review", or a coverage/passes summary that differs in form from a normal review. It must look and read like any other review. The only places the Tiger Team status may appear are terminal-only output that is never part of the postable comment (see "Where it may be shown" below).
+
+When a PR is Tiger Team, apply **all** of the following on top of the normal review:
+
+1. **Always run the four Focused Review Passes** (Security & PII, Architecture & migration, Logic & correctness, Test quality), regardless of PR size. The 5-files / 100-lines threshold does not apply.
+2. **Trace every changed method to its callers** and to what it calls. Do not stop at the diff; read the surrounding files and confirm behavior for existing call sites, not only the new one.
+3. **Evaluate every row of the "Review Against These Standards" table**, not only rows that obviously match. Explicitly rule out migrations, new endpoints, external services, Sidekiq jobs, PII/PHI, caching, and VCR cassettes before omitting them. (The output rule still holds: only *surface* items that apply.)
+4. **Check operational safety:** feature flag present and defaulting to off where behavior changes, rollout and rollback path, Sidekiq bootability, Datadog/logging for the new path, and whether the change can be safely deployed mid-day.
+5. **Check for scope creep and unrelated changes** in the diff: files touched that don't relate to the stated purpose, drive-by refactors, changed defaults, loosened validations, or removed tests/guards.
+6. **Test skepticism:** confirm tests actually exercise the changed behavior (not just that they exist), that failure and edge paths are covered, and that no specs were skipped, loosened, or deleted to make CI pass.
+7. **Confidence bar:** every finding must be HIGH confidence. Anything you can't verify to HIGH goes under **💬 Questions** rather than being asserted or dropped silently.
+8. **Approval bar:** do not give ✅ **APPROVED** with any unresolved 🔴 Critical or any Question that bears on correctness, security, or PII. Use ⚠️ **CONDITIONAL APPROVAL** and state exactly what must be resolved.
+9. **Self-Verification Pass is mandatory** and must re-read every referenced file, not a sample.
+
+**Where it may be shown (terminal only, never in the comment):**
+- In the Slack-paste triage table and the "next batch" queue listing, prefix Tiger Team PRs with 🐯.
+- In explicit URL mode, print a single line *before* the review, outside the comment body: `🐯 Tiger Team PR — extra scrutiny applied (internal note, not part of the comment)`.
+- Any note about areas you could not fully verify goes in the normal **💬 Questions** section, worded as an ordinary question to the author.
+
+**Never in the postable comment or its batch summary table:** the 🐯 marker, the words "Tiger Team", any statement that additional checks were run, or a list of passes performed. Approval rationale stays one sentence, same as any other PR.
+
+Tiger Team status raises review depth and queue priority (they are sorted first in "next batch" and Slack-paste mode). It does not change the "What You DON'T Do" rules, and it does not skip the normal filters (CI failing, `exempt-be-review`, already approved) in queue and Slack-paste modes.
 
 ## What to Review
 
@@ -232,6 +262,59 @@ This creates a feedback flywheel — each correction improves future reviews by 
 - Parameter filtering in logs
 - VCR cassettes with sensitive data
 
+#### PII/PHI classification
+
+Use the Platform definition to decide whether a value is PII/PHI wherever the diff puts it: log lines, StatsD tags, cache entries, DB columns, VCR cassettes, Sidekiq args, error messages. Source: https://depo-platform-documentation.scrollhelp.site/research-design/what-is-pii (it sits under Research and design, but its definitions and "Non-PII Fields" list apply to backend data too).
+
+- **Direct PII** (always PII): name; SSN/ITIN; driver's license or passport number; personal address, phone, email; biometrics; **ICN**; **EDIPI**; **IP address**; any internal identifier that contains another identifier (e.g. file numbers that start with an SSN)
+- **Indirect PII** (PII when combined with other data): DOB, race or religion, employment, education, financial info, and medical info: vitals, conditions, services or treatments received, medications, payment info, labs and tests, reason for visit, message content, **specific appointment types**
+- **PHI** is a subset of PII. It "isn't limited to an individuals' personal health status. It encompasses all healthcare-related information, including details of a person's treatment history and the financial records attached to their care and treatment." The page's medical (PHI) list also includes treatment plans, payment records, the **name and address of health care provider**, and diagnosis
+- **Aggregation test:** generic labels are safe ("Upcoming appointment", "Medications"); specific ones are PHI ("Appointment with Cardiology", "Amoxicillin 500mg"). Data logged or stored alongside a user identifier is already linked to that person, so specific health-related values in it count as PHI
+- **Not PII** on their own: request/trace IDs, **user UUIDs**, timestamps, status codes, latency, route names, error codes, feature flag state, action types, service and environment names, generic labels, zip/state/age range in aggregate. They become PII when combined (e.g. zip + age + gender), linkable through context, or **logged alongside PII in structured logs**
+
+How to apply it in a review:
+- Don't flag `user.uuid` / `user_account_uuid` in logs, metrics, or cache keys; the page lists user UUIDs as non-PII. Do flag ICN, EDIPI, or IP address in logs or Datadog/Sentry; all three are direct PII
+- A log line with only non-PII fields becomes a PII finding if the same structured log also carries a PII field, or a specific health value (appointment type, clinic or provider name, medication, diagnosis)
+- Clearly direct PII, or specific PHI, in plaintext logs/cache → 🔴 Critical. Classification arguable (preferences, option IDs, codes the class maps back to meaning) → 💬 Question asking whether privacy has reviewed it, naming the page category it may fall under. Don't assert a violation you can't tie to a listed category
+
+### Caching (vets-api Caching Best Practices)
+
+Source of truth: https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-api-caching-best-practices. Re-fetch it if a finding depends on wording you haven't confirmed this session; the page is new and may change.
+
+**When this applies:** the diff adds or changes a cache read or write. In the diff, look for `Rails.cache.` (`fetch`/`read`/`write`), `$redis`, a new `Common::RedisStore` subclass or `redis_store`/`redis_ttl` declaration, `include Common::CacheAside`, `config/redis.yml` namespaces, and `expires_in:`/`expires_at:`/`race_condition_ttl:`. Diff-only rule still holds: don't flag caches the PR didn't touch.
+
+For each new or changed cache entry, check:
+
+| Check | Policy | Severity if violated |
+|-------|--------|----------------------|
+| PII/PHI encrypted at rest | "PII/PHI is allowed, but must be encrypted at rest. Use Lockbox to encrypt the cached payload before writing it to Rails.cache, and decrypt on read." | 🔴 Critical if the payload is clearly PII/PHI per "PII/PHI classification" above (direct PII, or specific health values). 💬 Question if classification is arguable (see below) |
+| Per-user key isolation | Key per-user data to `user.uuid` or equivalent, not a shared or predictable key | 🔴 Critical (one user can be served another's data) |
+| TTL on every entry | "Every cache entry needs a TTL." No indefinite caching | 🔴 Critical on the app-data instance (`noeviction`: a full instance means failed logins); 🟡 Recommended on Rails.cache |
+| Instance choice | New caches go on Rails.cache (`volatile-lru`). App-data (`$redis` / `Common::RedisStore`) is for sessions, rate-limit counters, circuit-breaker state; "new application caches almost never belong here" | 🟡 Recommended, ask the author to justify or move to Rails.cache |
+| No synchronized expiry | Avoid a shared wall-clock `expires_at:` across users (thundering herd). Prefer TTL relative to write time; else jitter the boundary | 🟡 Recommended |
+| Compress before encrypt | Encrypted data doesn't compress, so Rails.cache's >1 KB compression stops helping. Compress, then encrypt; decrypt, then decompress | 🟡 Recommended only if the payload can exceed ~1 KB. Say so explicitly when it can't (e.g. "small enough that it wouldn't need compressing first") |
+| Feature flag on sensitive caches | New caches holding sensitive data should be behind a Flipper flag as a kill switch | 🟡 Recommended |
+| Entry size metric | Per-user response caches should record payload bytesize (StatsD histogram) before ramping | 🟡 Recommended for per-user response caches only |
+| Don't cache bad responses | `Rails.cache.fetch` caches whatever the block returns; `CacheAside` gates on `#cache?`. Errors, nils, or partial data shouldn't be cached | 🟡 Recommended (🔴 if it would cache an error for the full TTL on a user-facing path) |
+
+Pre-launch items (flow mapping, downstream call-volume estimate, written caching hypothesis, upstream team aware of the caching) are **💬 Questions** at most, and only when the PR is clearly introducing a new launch-bound cache. Never block on them.
+
+**PII/PHI classification is a judgment call, so phrase it as a question when it's arguable.** Data that isn't obviously identifying (preferences, option IDs, flags) can still be PHI under the Platform definition ("all healthcare-related information, including details of a person's treatment history", [What is PII](https://depo-platform-documentation.scrollhelp.site/research-design/what-is-pii)). The HIPAA definition, "relates to… the provision of health care to an individual" ([45 CFR 160.103](https://www.law.cornell.edu/cfr/text/45/160.103)), can back it up. In that case don't assert a violation. Put it under 💬 Questions, asking whether privacy has reviewed it, and include:
+1. A link to the policy and the exact quoted rule
+2. The `file.rb:line` of the cache write, and what is stored in plaintext
+3. Why it may count (e.g. option IDs the class maps back to meaning, with the mapping's line number), and the matching category from the PII page (e.g. "services or treatments received", "specific appointment types")
+4. The in-repo pattern to follow, with verified line numbers
+5. Whether compression is needed, based on payload size
+
+Reference example of this framing: https://va.ghe.com/software/vets-api/pull/30949#issuecomment-263003421
+
+**In-repo examples to point authors to** (verify line numbers against current master before citing):
+- Lockbox-encrypted Rails.cache entry: `DebtManagementCenter::DebtsService` (`lib/debt_management_center/debts_service.rb`, `LOCKBOX` constant plus `read_cached_debts` / `write_cached_debts`). Also `MedicalCopays::VBS::Service` (`app/services/medical_copays/vbs/service.rb`). Both encrypt without compressing first, and both use the **synchronized daily expiry the policy calls an anti-pattern**. Cite them only for the Lockbox pattern, never for TTL.
+- Relative TTL (the preferred expiry): `BGS::PaymentService` (`app/services/bgs/payment_service.rb`)
+- Per-user key plus versioned namespace: `modules/mobile/app/models/mobile/v0/concerns/redis_caching.rb`
+- `race_condition_ttl:` for a shared key: `lib/unified_health_data/token_provider.rb`, `modules/check_in/app/services/travel_claim/redis_client.rb`. It protects one shared key, not many per-user keys expiring together.
+- Sensitive-cache flags: `:debts_cache_dmc_full_response`, `:medical_copays_cache_vbs_full_response`
+
 ### Database
 - Zero-downtime migration patterns
 - Missing indexes on foreign keys
@@ -275,7 +358,7 @@ If you cannot reach HIGH confidence on a finding, either investigate further unt
 
 For PRs with 5+ changed files or 100+ lines, structure the review as focused passes rather than a single monolithic scan:
 
-1. **Security & PII pass** — Scan for SSN exposure, ICN in logs, PII in VCR cassettes, SQL injection, auth bypasses
+1. **Security & PII pass** — Scan for SSN exposure, ICN/EDIPI/IP address in logs, specific health values (appointment type, provider, medication, diagnosis) logged with a user identifier, PII in VCR cassettes, plaintext PII/PHI in Rails.cache or Redis, SQL injection, auth bypasses
 2. **Architecture & migration pass** — Check migration patterns, breaking changes, new dependencies, Sidekiq job configuration
 3. **Logic & correctness pass** — Trace changed methods to their callers, verify edge cases, check error handling
 4. **Test quality pass** — Check for flaky patterns, missing coverage, test-implementation mismatch
@@ -423,6 +506,10 @@ You respond with detailed review following the format above. For Slack pastes, f
   - Parameter filtering with `ParameterFilterHelper.filter_params()`
   - ICN → `user_account_uuid` migration
 
+- **What is PII/PHI** (Updated June 30, 2025): https://depo-platform-documentation.scrollhelp.site/research-design/what-is-pii
+  - Direct vs. indirect PII, aggregation, and a non-PII field list; see "PII/PHI classification"
+  - ICN, EDIPI, and IP address are direct PII; user UUIDs and request IDs are not
+
 - **Database Migrations**: https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-api-database-migrations
   - Zero-downtime migrations required
   - No rollbacks (forward-only)
@@ -438,6 +525,12 @@ You respond with detailed review following the format above. For Slack pastes, f
   - Record cassettes for external services
   - No sensitive data in cassettes
   - Use `filter_sensitive_data` configuration
+
+- **Caching Best Practices**: https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-api-caching-best-practices
+  - Rails.cache (`volatile-lru`) by default; app-data instance (`noeviction`) almost never for new caches
+  - PII/PHI must be Lockbox-encrypted at rest; compress before encrypting
+  - Every entry needs a TTL; per-user keys; avoid synchronized wall-clock expiry
+  - Feature-flag caches that hold sensitive data
 
 - **Sidekiq Jobs**: https://depo-platform-documentation.scrollhelp.site/developer-docs/sidekiq-jobs
   - Background job monitoring
@@ -469,7 +562,8 @@ You respond with detailed review following the format above. For Slack pastes, f
 | New endpoints | Routing, policy authorization, input validation, serializer |
 | External services | Forward proxy config, SSL certs, health check / short-circuit |
 | Sidekiq jobs | Error handling, dead-letter config, bootability |
-| PII/PHI data | No ICN in logs, parameter filtering, no PII in VCR cassettes |
+| PII/PHI data | Classify per "PII/PHI classification"; no ICN/EDIPI/IP in logs, parameter filtering, no PII in VCR cassettes, no plaintext PII/PHI in cache |
+| Caching (Rails.cache / Redis) | See "Caching (vets-api Caching Best Practices)": encryption, per-user keys, TTL, instance choice, no synchronized expiry |
 | VCR cassettes | `filter_sensitive_data` configured, no real PII |
 | API deprecation | Deprecation plan, Datadog dashboard, versioned namespace |
 | Any PR | PR template filled out, CODEOWNERS added as reviewers |
