@@ -74,6 +74,8 @@ Automated review system for VA.gov Collaboration Cycle to ensure government stan
 - [ ] **Required:** Cleanup/removal mechanism specified
 - [ ] **Recommended:** Large or new data volume impact assessed
 - [ ] **Recommended:** Impact on database/caching layers (Redis, Postgres) evaluated
+- [ ] **Recommended:** New caches: caching hypothesis stated (instance, TTL, pattern, why); Rails.cache unless app-data is justified (see collab-review.md "Caching")
+- [ ] **Recommended:** Cached PII/PHI encrypted with Lockbox (compress first if >1 KB), per-user keys, every entry has a TTL
 - [ ] **Consider:** Memory, CPU, and data volume implications
 
 #### **Libraries and Dependencies**
@@ -213,6 +215,8 @@ Automated review system for VA.gov Collaboration Cycle to ensure government stan
 - [ ] **Required:** No PII in VCR cassettes
 - [ ] **Required:** `filter_sensitive_data` VCR configuration applied
 - [ ] **Required:** No sharing PII/tokens/credentials with external AI tools (ChatGPT, Copilot)
+- [ ] **Required:** PII/PHI in Rails.cache or Redis encrypted at rest with Lockbox (caching policy)
+- [ ] **Required:** Data classified using the Platform PII/PHI definition (direct, indirect, aggregation); ICN, EDIPI, and IP address are direct PII
 
 ### Prohibited Actions
 - [ ] **Required:** No emailing PII-containing files to non-VA addresses
@@ -381,6 +385,8 @@ Launch-blocking issues require the `launch-blocking` label on the ticket.
 
 - Backend Developer Documentation: https://depo-platform-documentation.scrollhelp.site/developer-docs/backend-developer-documentation
 - PII Guidelines (Updated June 2025): https://depo-platform-documentation.scrollhelp.site/developer-docs/personal-identifiable-information-pii-guidelines
+- What is PII/PHI (Updated June 2025): https://depo-platform-documentation.scrollhelp.site/research-design/what-is-pii
+- vets-api Caching Best Practices (Updated Oct 2026): https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-api-caching-best-practices
 - Database Migrations: https://depo-platform-documentation.scrollhelp.site/developer-docs/vets-api-database-migrations
 - External Service Integration (Updated Aug 2025): https://depo-platform-documentation.scrollhelp.site/developer-docs/adding-a-new-external-service-integration
 - VCR Testing: https://depo-platform-documentation.scrollhelp.site/developer-docs/vcr-debugging

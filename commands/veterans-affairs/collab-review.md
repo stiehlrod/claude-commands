@@ -54,6 +54,8 @@ The old Engineering & Security Checklist (`va.gov-team-sensitive/.../architectur
 
 **Guidelines confirmation:** both templates require the team to confirm they've reviewed the [Platform Engineering and Security Guidelines](https://va.ghe.com/software/va.gov-team/tree/master/platform/engineering/guidelines). If the box is unchecked, ask about it in the Post (not launch-blocking at Architecture Intent).
 
+**The new plans are shorter on purpose.** The Platform announcement in Slack confirmed the Eng Development Plan is intentionally more minimal than the old Engineering & Security Checklist, partly because the checklist is now split into two documents (Development Plan at Architecture Intent, Launch Plan at Staging Review). A brief plan is not a gap. Detail the old checklist collected up front is now collected at the Launch Plan, so don't ask for it at Architecture Intent. Team feedback about the templates goes through the feedback link at the top of their Collab Cycle ticket, not through the review.
+
 **In-flight teams on the old checklist:** teams were still committing Engineering & Security Checklists to `va.gov-team-sensitive` in late Oct 2026. If a team links an old checklist instead of a plan, review what they provided. Don't ask them to redo it in the new format.
 
 **Your 200+ item checklist is your internal reference. The team was NOT asked to address all of those items.** Do not penalize teams for not covering items that go beyond what the template asked for. The Architecture Intent meeting is a collaborative discussion, not a compliance audit.
@@ -130,7 +132,7 @@ No waiver is available for Staging Review or Eng & Sec Staging Review.
    - If feature claims "no backend changes" but related backend code exists, note this for discussion
    - Document what you searched for and findings in the review (e.g., "Verified: no existing AccessVA code in vets-api")
    - This helps catch cases where teams may not be aware of existing backend code they should consider
-5. Assess against Architecture Intent Review Checklist sections (backend focus):
+5. Read the Technical approach (and References) for which of the topics below it actually touches, and review only those. The plan is a short narrative, so a topic it doesn't mention is a question for the team at most (and only when the feature plausibly involves it), not a missing section. Don't walk the full list as a scorecard. Topics (backend focus):
    - Backend Changes (vets-api implementation)
    - Internal/External API Changes
    - Background Jobs (Sidekiq)
@@ -371,7 +373,7 @@ Do not include Suggestions in the Post section.
 ## Key Review Areas
 
 ### Architecture Intent Focus
-- [ ] Product outline completeness
+- [ ] Initiative overview and Technical approach clarity (enough to ask informed questions)
 - [ ] High-level architecture appropriateness
 - [ ] Security approach (diagrams, incident response)
 - [ ] Data handling strategy (PII/PHI)
@@ -498,7 +500,7 @@ Apply it to retention the feature **adds or sets**: new tables/columns, new or c
 
 **Backend engineering provides formal feedback ONLY at:**
 - ✅ **Architecture Intent** (before development starts)
-- ✅ **Staging Review** (before launch)
+- ✅ **Staging Review** and **Engineering & Security Staging Review** (before launch)
 
 Focus on: Backend code implementation, APIs, databases, external services, background jobs, PII/PHI handling, security, and monitoring.
 
