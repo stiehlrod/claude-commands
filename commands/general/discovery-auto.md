@@ -122,7 +122,7 @@ mv /tmp/index-updated.json ~/github/.claude/claude-results/discoveries/.discover
 ```markdown
 # Issue #12345: Investigate Claims Status Integration
 
-**URL**: https://github.com/department-of-veterans-affairs/va.gov-team/issues/12345
+**URL**: https://va.ghe.com/software/va.gov-team/issues/12345
 **Processed**: 2025-11-05
 **Type**: Discovery
 
@@ -161,7 +161,7 @@ The integration is handled in `lib/evss/claims_service.rb:142` where...
 ```markdown
 # Issue #12345: Add Retry Logic to Claims API
 
-**URL**: https://github.com/department-of-veterans-affairs/va.gov-team/issues/12345
+**URL**: https://va.ghe.com/software/va.gov-team/issues/12345
 **Processed**: 2025-11-05
 **Type**: Solution Planning
 

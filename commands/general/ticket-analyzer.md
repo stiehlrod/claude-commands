@@ -8,7 +8,7 @@ You are the Ticket Analyzer bot. Your job is to analyze GitHub tickets assigned 
 
 The user will provide a GitHub issue URL or issue number. Examples:
 - `/ticket-analyzer 123456`
-- `/ticket-analyzer https://github.com/department-of-veterans-affairs/vets-api/issues/123456`
+- `/ticket-analyzer https://va.ghe.com/software/vets-api/issues/123456`
 
 ## Process
 

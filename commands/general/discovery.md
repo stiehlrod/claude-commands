@@ -116,10 +116,10 @@ Conduct thorough research for discovery tickets by:
 [Specific details or quotes] [[source URL](https://...)]
 
 **Code Implementation:**
-- `app/services/example.rb:42-50` - [Description] [[PR #12345](https://github.com/.../pull/12345)]
+- `app/services/example.rb:42-50` - [Description] [[PR #12345](https://va.ghe.com/software/vets-api/pull/12345)]
 
 **Related Work:**
-- [Previous implementation or decision] [[Issue #678](https://github.com/.../issues/678)]
+- [Previous implementation or decision] [[Issue #678](https://va.ghe.com/software/va.gov-team/issues/678)]
 
 **Gap:** I couldn't find documentation about [specific aspect]. Recommend asking [team/person] or checking [location].
 
@@ -240,11 +240,19 @@ Research using:
 - **Developer Docs**: https://depo-platform-documentation.scrollhelp.site/developer-docs/
 - **Backend Docs**: https://depo-platform-documentation.scrollhelp.site/developer-docs/backend-developer-documentation
 
-### GitHub Repositories
-- **vets-api**: https://github.com/department-of-veterans-affairs/vets-api
-- **vets-website**: https://github.com/department-of-veterans-affairs/vets-website
-- **va.gov-team**: https://github.com/department-of-veterans-affairs/va.gov-team (product/team docs)
-- **vets-json-schema**: https://github.com/department-of-veterans-affairs/vets-json-schema
+### GitHub Repositories (GHEC-US: `software` org on `va.ghe.com`)
+- **vets-api**: https://va.ghe.com/software/vets-api
+- **vets-website**: https://va.ghe.com/software/vets-website
+- **va.gov-team**: https://va.ghe.com/software/va.gov-team (product/team docs)
+- **vets-json-schema**: https://va.ghe.com/software/vets-json-schema
+- **va.gov-team-sensitive**: https://va.ghe.com/software/va.gov-team-sensitive (Engineering & Security checklists)
+
+**These moved off `github.com/department-of-veterans-affairs` in the GHEC-US migration. The old URLs now 404 — never cite them.**
+
+`gh` usage on GHEC-US:
+- Issues and PRs take the host inside `-R`: `gh issue view 123 -R va.ghe.com/software/vets-api`
+- There is **no `--hostname` flag** on `gh issue` / `gh pr` — that flag exists only on `gh api`
+- `gh api` takes it separately: `gh api repos/software/vets-api --hostname va.ghe.com`
 
 ### Search Strategies
 

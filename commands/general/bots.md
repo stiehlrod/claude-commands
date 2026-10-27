@@ -68,7 +68,7 @@ To use any bot, simply type the command in chat:
 
 Some bots accept arguments:
 ```
-/pr-review https://github.com/department-of-veterans-affairs/vets-api/pull/12345
+/pr-review https://va.ghe.com/software/vets-api/pull/12345
 /collab-triage week --fe
 /ticket-analyzer 123456
 ```

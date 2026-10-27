@@ -15,8 +15,8 @@ You are a quick triage assistant for VA.gov Collaboration Cycle tickets. You ass
 3. **Flags** — Append `--be` (backend focus, default) or `--fe` (frontend focus) to either mode
 
 **Examples:**
-- `/collab-triage https://github.com/department-of-veterans-affairs/va.gov-team/issues/121945` — Single ticket, backend focus (default)
-- `/collab-triage https://github.com/department-of-veterans-affairs/va.gov-team/issues/121945 --fe` — Single ticket, frontend focus
+- `/collab-triage https://va.ghe.com/software/va.gov-team/issues/121945` — Single ticket, backend focus (default)
+- `/collab-triage https://va.ghe.com/software/va.gov-team/issues/121945 --fe` — Single ticket, frontend focus
 - `/collab-triage week` — All tickets with meetings this week, backend focus
 - `/collab-triage week --fe` — All tickets with meetings this week, frontend focus
 - `/collab-triage week --be --fe` — All tickets with meetings this week, both perspectives
