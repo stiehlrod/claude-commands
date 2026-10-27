@@ -39,7 +39,30 @@ The user provides a description of what the ticket is about. This can be brief â
    gh issue create --title "TITLE" --body-file /tmp/ticket_body.md --label "epic:xxx"
    ```
 
-7. **Return the issue URL** to the user.
+7. **Run the pointing tool** (`software/va.gov-team` on va.ghe.com only; skip for other repos). The [Copilot Refinement Analysis](https://va.ghe.com/software/va.gov-team/actions/workflows/copilot-refinement-analysis.lock.yml) workflow posts a complexity estimate comment and writes Points and Priority to the Platform SRE Team board (project #358).
+   - If the issue was created with the `platform-sre-team` label (and no `Epic` label), the workflow fires on its own from `issues: opened`. Do not dispatch it again.
+   - Otherwise, dispatch it:
+     ```bash
+     GH_HOST=va.ghe.com gh workflow run copilot-refinement-analysis.lock.yml -R software/va.gov-team -f issue_number=NUMBER
+     ```
+   - Wait for the bot comment (usually a few minutes). Use a Monitor until-loop that polls for it, and do not use `sleep`:
+     ```bash
+     GH_HOST=va.ghe.com gh api repos/software/va.gov-team/issues/NUMBER/comments \
+       --jq '.[] | select(.body | test("Recommended points:")) | .body'
+     ```
+     If no comment appears within ~10 minutes, check `gh run list --workflow copilot-refinement-analysis.lock.yml -R software/va.gov-team --limit 5` and report the run state to the user. Do not guess points.
+
+8. **Set board Status**. The workflow does not set Status, so set it here from the `Recommended points: N` line. Points reflect complexity. Do not use the `Recommended priority` line (that is urgency, not complexity) or the per-dimension Low/Medium/High ratings.
+   - Points 1â€“3: set Status to Ready. Use **Ready - BE** for `backend` tickets, **Ready - FE** for `frontend` tickets, and **Ready** otherwise.
+   - Points 5+ (the rubric calls 5 "Major difficulty" and says 8+ should be split), or no points posted: set Status to **To Refine** and add the `needs-refinement` label.
+   ```bash
+   ITEM_ID=$(GH_HOST=va.ghe.com gh project item-add 358 --owner software --url ISSUE_URL --format json --jq .id)
+   GH_HOST=va.ghe.com gh project item-edit --project-id PVT_kwDOAAEG5c1Ayg --id "$ITEM_ID" \
+     --field-id PVTSSF_lADOAAEG5c1Ays4ABAWs --single-select-option-id OPTION_ID
+   ```
+   Status option IDs: Ready - BE `47c42292`, Ready - FE `4a23982b`, Ready `f013e127`, To Refine `318e935a`.
+
+9. **Return the issue URL** to the user, with the recommended points, priority, and Status that was set.
 
 ## Ticket Template
 
