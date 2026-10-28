@@ -135,6 +135,8 @@ Evaluate each item and mark PASS / ISSUE:
 
 Write the evaluation in the reviewer's voice, since it is posted under their name. Do not write "whoever approves", and do not refer to yourself as an AI ("I could not view the image"). Address the named approver and script author with @ mentions where an action is needed. Use no pipes and no `>` blockquotes, because the draft is pasted into GitHub.
 
+State each ask directly. Do not quote or paraphrase what the requester said ("Requester says ..."). For example, write "Please add a date." for a missing deletion date, not a restatement of their answer.
+
 ```
 ## Safety Evaluation — Issue #<number>
 
@@ -152,15 +154,14 @@ Write the evaluation in the reviewer's voice, since it is posted under their nam
 - **Staging tested: PASS / FAIL.** <notes>
 - **Rollback plan is viable: PASS / FAIL.** <notes>
 
-### Findings
+### Run this script
+<The corrected script in its own fenced ruby block, with every fixable finding already applied. One line stating that it prints the same fields as the posted script. See Step 5a. If the posted script needs no changes, say "Run the script as posted.">
+
+### Still needed
+<Only items that cannot be fixed inside the script, such as a missing deletion date, a decision the requester must confirm, or a recipient to confirm. One finding per item>
 
 **[CRITICAL / WARNING / INFO] <Finding title>**
-<Explanation with code snippet if relevant. Mention "Also raised in the earlier comment" if a prior comment covered it>
-<Citation: file name from origin/master>
-**Recommendation:** <Concrete action>
-
-### Suggested script
-<Only when the script has fixable findings. See Step 5a>
+<One or two lines: the ask, stated directly. Add "Also raised in the earlier comment" if a prior comment covered it>
 
 ### What Looks Good
 - <item>
@@ -188,12 +189,14 @@ Label findings:
 
 ### Step 5a: Improve the Script, Don't Just Warn
 
-When findings are fixable, write a corrected script and include it under "Suggested script" instead of only listing warnings.
+When findings are fixable, write a corrected script and put it under "Run this script" instead of listing the findings. Do not list a finding the script already fixes: the script carries the correction, so the findings section holds only what cannot be implemented in it. Keep the reasoning (file names, line cites) in your own `/qa-check` working, not in the posted comment.
 - Keep the same output fields and the same read-only behavior. Fix nil guards, blank or placeholder identifiers, dead code (`if service`), and add an end marker (`puts 'Done'` then `nil`)
 - Do not change what the script returns without saying so. If a fix would change semantics (for example filtering, or switching to a public method), leave it as a decision for the requester
 - Do not suggest a swap to a method with side effects (for example a public method that writes to the cache) without reading it first
 - Verify locally before presenting: `ruby -c` for syntax, then a stub run that includes the failure case (for example a record missing an optional field). State plainly that this tests script logic only, not the real service or response shape
 - In the posted comment, put the script in its own fenced `ruby` block
+- If the requester has already updated the script in the issue body but it still contains comments, say so in one sentence above the block and tell them to run the comment-free version
+- **No comments inside the script.** It is copied straight into the console, so every line must be pasteable as-is. Put context (for example "enter the SSN in the session only", "output is unfiltered on purpose") in "Still needed" or the sentence above the block. A placeholder value like `'<SSN>'` is fine
 
 ### Step 6: Run /qa-check
 
@@ -205,7 +208,7 @@ Do not present the evaluation as final until it passes `/qa-check`. If `/qa-chec
 
 1. **Print the draft** in the console as a plain code block. Never write it to a file
 2. **Wait for explicit approval** before posting anything to GitHub. Approval to draft is not approval to post
-3. **Before posting**, confirm the issue is still OPEN and re-list the comments, in case new ones landed
+3. **Before posting**, confirm the issue is still OPEN, and re-read the comments and the issue body, in case new ones landed or the requester edited the script. Requesters often answer open items while the review is in progress. Drop any "Still needed" item they have resolved and record the answer where it belongs (for example the deletion date in the Output Handling Note). Re-fetch `origin/master` and confirm the files the review depends on are unchanged; update the "Reviewed against" sha
 4. **Post** with `gh issue comment ... --body-file <scratchpad file>`
 5. **After posting**, confirm the comment exists through the API (`gh api repos/software/va.gov-team/issues/comments/<id>`) and that the comment count went up
 6. **Replacing a comment**: fetch it by id first and check it is the reviewer's own. If it is missing, report that and ask before posting a new one
